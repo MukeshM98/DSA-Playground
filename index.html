@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA Playground</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #F7F9FB;
+            color: #4A5568;
+        }
+        /* Page transitions */
+        .page {
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 300ms ease, transform 300ms ease;
+        }
+        .page.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        /* Card hover */
+        .card {
+            transition: transform 200ms ease, box-shadow 200ms ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Bar grow animation */
+        @keyframes barGrow { from { height: 0; } to { height: var(--h); } }
+        .bar-anim { animation: barGrow 400ms ease forwards; }
+        /* Canvas subtle grid */
+        .canvas-grid {
+            background-color: #ffffff;
+            background-image:
+                linear-gradient(to right, rgba(2,6,23,0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(2,6,23,0.04) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        /* Stack/Queue visuals */
+        .stack-grid { display: flex; flex-direction: column-reverse; gap: 8px; min-height: 200px; }
+        .queue-grid { display: grid; grid-auto-flow: column; gap: 8px; align-items: center; min-height: 96px; }
+        .slot {
+            min-height: 44px;
+            border: 2px solid #D7DFEA;
+            border-radius: 10px;
+            background: #ffffff;
+            display: flex; align-items: center; justify-content: center;
+            color: #4A5568; font-weight: 600;
+            box-shadow: 0 2px 6px rgb(0 0 0 / 0.06);
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
+        }
+        .slot-filled { background-color: #E9FBF6; border-color: #38D9A9; }
+        .slot-top { border-color: #4C6EF5; box-shadow: 0 0 0 2px rgba(76,110,245,.15) inset; }
+        .slot-front { border-color: #4C6EF5; box-shadow: 0 0 0 2px rgba(76,110,245,.15) inset; }
+        .badge { font-size: 10px; padding: 2px 6px; border-radius: 9999px; background: #4C6EF5; color: #fff; margin-left: 6px; }
+        @keyframes pushIn { from { transform: translateY(6px); opacity: .7; } to { transform: none; opacity: 1; } }
+        @keyframes enqueueIn { from { transform: translateX(6px); opacity: .7; } to { transform: none; opacity: 1; } }
+        .push-anim { animation: pushIn .25s ease; }
+        .enqueue-anim { animation: enqueueIn .25s ease; }
+        .flash { animation: flashBg .5s ease; }
+        @keyframes flashBg { 0% { background-color: #fff3c4; } 100% { background-color: inherit; } }
+        .empty-state {
+            display: flex; align-items: center; justify-content: center;
+            color: #94a3b8; font-weight: 600; font-size: 14px; min-height: 60px;
+        }
+        .toast-container { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+        .toast { background: #1f2937; color: #fff; padding: 10px 12px; border-radius: 8px; box-shadow: 0 10px 15px rgb(0 0 0 / 0.2); display: flex; align-items: center; gap: 8px; font-weight: 600; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: #059669; }
+        .toast.error { background: #dc2626; }
+        .toast.info { background: #2563eb; }
+        button:disabled { opacity: .6; cursor: not-allowed; }
+        input[type="text"], input[type="number"], input[type="search"], input[type="range"] { outline: none; }
+        input[type="text"]:focus, input[type="number"]:focus, input[type="search"]:focus { border-color: #4C6EF5; box-shadow: 0 0 0 3px rgba(76,110,245,.12); }
+        /* Buttons polish */
+        .btn:hover { box-shadow: 0 4px 10px -4px rgb(0 0 0 / 0.2); }
+        .btn:focus-visible { outline: 2px solid #4C6EF5; outline-offset: 2px; }
+        .tab-btn { border-radius: 9999px; }
+        .controls-panel, .info-panel {
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        /* Inline editor for nodes */
+        #canvas-container { position: relative; }
+        .inline-editor {
+            position: absolute;
+            transform: translate(-50%, -110%);
+            background: #ffffff;
+            border: 1.5px solid #D7DFEA;
+            border-radius: 12px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+            padding: 10px 12px;
+            display: flex; gap: 8px; align-items: center;
+            z-index: 40;
+            animation: popIn .15s ease; 
+        }
+        .inline-editor:after {
+            content: '';
+            position: absolute;
+            left: 50%; bottom: -8px; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid #ffffff;
+            filter: drop-shadow(0 -1px 0 #D7DFEA);
+        }
+        @keyframes popIn { from { opacity: 0; transform: translate(-50%, -120%) scale(.98); } to { opacity: 1; transform: translate(-50%, -110%) scale(1); } }
+        .inline-editor input {
+            border: 1px solid #D7DFEA;
+            border-radius: 8px;
+            padding: 8px 10px;
+            min-width: 160px;
+            outline: none;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .inline-editor input:focus {
+            border-color: #4C6EF5;
+            box-shadow: 0 0 0 3px rgba(76,110,245,.12);
+        }
+        .inline-editor .label { font-size: 12px; color: #5A667A; margin-right: 2px; }
+        .inline-editor button {
+            background: #4C6EF5; color: #fff; border: none; border-radius: 9999px; padding: 8px 12px; cursor: pointer; font-weight: 600; font-size: 12px;
+            transition: background-color .15s ease, box-shadow .15s ease;
+        }
+        .inline-editor button:hover { box-shadow: 0 6px 12px rgba(76,110,245,.25); }
+        .inline-editor button.cancel { background: #EFF3F7; color: #4A5568; }
+        .inline-editor button.cancel:hover { background: #E6ECF3; }
+        .btn { transition: all 0.2s ease-in-out; }
+        .btn-active { background-color: #4C6EF5; color: white; }
+        .btn-delete-active { background-color: #ef4444; color: white; }
+        .btn:hover:not(.btn-active):not(.btn-delete-active) { background-color: #eef2ff; }
+        
+        /* Pseudocode styling */
+        .pseudo-line {
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+        }
+        .pseudo-line.highlight { background-color: #E9FBF6; }
+        
+        /* Data Structure styling */
+        .ds-container {
+            min-height: 100px;
+            border: 2px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-content: flex-start;
+        }
+        .ds-item {
+            background-color: #4C6EF5;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        /* Palette overrides for Tailwind utility classes used in markup */
+        .bg-indigo-600 { background-color: #4C6EF5 !important; }
+        .hover\:bg-indigo-700:hover { background-color: #3B5AE0 !important; }
+        .text-slate-800 { color: #4A5568 !important; }
+        .text-slate-700 { color: #4A5568 !important; }
+        .text-slate-600 { color: #5A667A !important; }
+        .bg-slate-50 { background-color: #F7F9FB !important; }
+        .bg-slate-100 { background-color: #EFF3F7 !important; }
+        .border-slate-300 { border-color: #D7DFEA !important; }
+        .bg-emerald-500 { background-color: #38D9A9 !important; }
+        .bg-emerald-600 { background-color: #2FC39A !important; }
+
+        /* Modal styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            max-width: 500px;
+            width: 90%;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+        .modal-overlay.visible .modal-content {
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex flex-col h-screen antialiased">
+
+    <header class="bg-white shadow-sm p-4 z-10">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-bold text-slate-800">DSA Playground</h1>
+                <nav class="hidden md:flex gap-1" id="pageNav">
+                    <button data-page="visualize" class="page-btn px-3 py-2 rounded-md text-sm font-medium bg-slate-900 text-white">Visualize</button>
+                    <button data-page="learn" class="page-btn px-3 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100">Learn</button>
+                </nav>
+            </div>
+            <nav class="flex gap-2" id="tabs">
+                <button data-tab="graphs" class="tab-btn px-4 py-2 text-sm font-medium bg-indigo-600 text-white">Graphs</button>
+                <button data-tab="sorting" class="tab-btn px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Sorting</button>
+                <button data-tab="stackqueue" class="tab-btn px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Stack/Queue</button>
+            </nav>
+        </div>
+    </header>
+
+    <main id="page-visualize" class="page visible flex-grow overflow-hidden">
+    <div id="tab-graphs" class="flex-grow flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+        
+        <div class="w-full md:w-80 lg:w-96 p-6 controls-panel flex flex-col gap-4 order-2 md:order-1 overflow-y-auto">
+            <div>
+                 <h2 class="text-lg font-semibold text-slate-700 mb-2">1. Graph Type</h2>
+                 <div class="flex bg-slate-200 rounded-lg p-1">
+                     <button id="unweightedBtn" class="w-1/2 p-2 rounded-md text-sm font-medium">Unweighted</button>
+                     <button id="weightedBtn" class="w-1/2 p-2 rounded-md text-sm font-medium">Weighted</button>
+                 </div>
+            </div>
+
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">2. Direction</h2>
+                <div class="flex bg-slate-200 rounded-lg p-1">
+                    <button id="undirectedBtn" class="w-1/2 p-2 rounded-md text-sm font-medium btn-active">Undirected</button>
+                    <button id="directedBtn" class="w-1/2 p-2 rounded-md text-sm font-medium">Directed</button>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">3. Build & Edit</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="addNodeBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Add Node</button>
+                    <button id="addEdgeBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Add Edge</button>
+                    <button id="dragNodeBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Drag Node</button>
+                    <button id="deleteBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Delete</button>
+                </div>
+                 <p class="text-xs text-slate-500 mt-2 text-center">Double-click a node to edit its value.</p>
+            </div>
+
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">4. Set Points</h2>
+                 <div class="grid grid-cols-2 gap-3">
+                    <button id="setStartBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Set Start</button>
+                    <button id="setEndBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Set End</button>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2 flex items-center gap-2">5. Choose Algorithm <i id="algoInfoBtn" class="fas fa-info-circle text-slate-400 cursor-pointer hover:text-indigo-600"></i></h2>
+                <select id="algorithmSelect" class="w-full p-3 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="bfs">Breadth-First Search (BFS)</option>
+                    <option value="dfs">Depth-First Search (DFS)</option>
+                    <option value="astar">A* Search</option>
+                    <option value="dijkstra">Dijkstra's Algorithm</option>
+                    <option value="bellman">Bellman-Ford</option>
+                    <option value="topo">Topological Sort</option>
+                    <option value="prim">MST (Prim)</option>
+                    <option value="kruskal">MST (Kruskal)</option>
+                </select>
+            </div>
+            
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">6. Run & Control</h2>
+                <div class="space-y-3">
+                    <button id="runBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Run Algorithm</button>
+                     <div class="flex items-center gap-3">
+                        <label for="speedRange" class="text-sm font-medium text-slate-600">Speed:</label>
+                        <input id="speedRange" type="range" min="50" max="1000" value="850" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="flex justify-center gap-4">
+                        <button id="pauseBtn" class="btn p-2 rounded-full w-10 h-10 text-slate-700 border border-slate-300" disabled><i class="fas fa-pause"></i></button>
+                        <button id="resumeBtn" class="btn p-2 rounded-full w-10 h-10 text-slate-700 border border-slate-300" disabled><i class="fas fa-play"></i></button>
+                        <button id="nextStepBtn" class="btn p-2 rounded-full w-10 h-10 text-slate-700 border border-slate-300" disabled><i class="fas fa-step-forward"></i></button>
+                    </div>
+                    <button id="resetBtn" class="w-full bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Reset</button>
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <button id="importBtn" class="btn p-2 rounded-lg text-slate-700 border border-slate-300">Import JSON</button>
+                        <button id="exportBtn" class="btn p-2 rounded-lg text-slate-700 border border-slate-300">Export JSON</button>
+                        <button id="presetGridBtn" class="btn p-2 rounded-lg text-slate-700 border border-slate-300">Preset: Grid</button>
+                        <button id="presetDagBtn" class="btn p-2 rounded-lg text-slate-700 border border-slate-300">Preset: DAG</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="statusBox" class="mt-auto p-4 bg-slate-50 rounded-lg text-slate-600 text-center font-medium h-24 flex items-center justify-center">
+                <p id="statusText">Select 'Add Node' to begin.</p>
+            </div>
+        </div>
+
+        <div id="canvas-container" class="flex-grow flex items-center justify-center order-1 md:order-2 min-h-0">
+            <canvas id="graphCanvas" class="border rounded-lg canvas-grid"></canvas>
+            <div id="inlineEditor" class="inline-editor" style="display:none;">
+                <span class="label">Node</span>
+                <input id="inlineInput" type="text" placeholder="Enter value" />
+                <button id="inlineOk">Add</button>
+                <button id="inlineCancel" class="cancel">Cancel</button>
+            </div>
+        </div>
+
+        <div class="w-full md:w-80 lg:w-96 p-6 info-panel flex flex-col gap-4 order-3 overflow-y-auto">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">Pseudocode</h2>
+                <div id="pseudocodeContainer" class="p-2 bg-slate-50 rounded-lg text-slate-800"></div>
+            </div>
+             <div>
+                <h2 id="ds-title" class="text-lg font-semibold text-slate-700 mb-2">Data Structure</h2>
+                <div id="dsContainer" class="ds-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-sorting" class="hidden flex-grow flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+        <div class="w-full md:w-80 lg:w-96 p-6 controls-panel flex flex-col gap-4 order-2 md:order-1 overflow-y-auto">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">1. Choose Algorithm</h2>
+                <select id="sortAlgo" class="w-full p-3 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="bubble">Bubble Sort</option>
+                    <option value="insertion">Insertion Sort</option>
+                    <option value="selection">Selection Sort</option>
+                    <option value="merge">Merge Sort</option>
+                    <option value="quick">Quick Sort</option>
+                    <option value="heap">Heap Sort</option>
+                </select>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">2. Configure</h2>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm font-medium text-slate-600">Size:</label>
+                        <input id="sortSize" type="range" min="5" max="80" value="30" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm font-medium text-slate-600">Speed:</label>
+                        <input id="sortSpeed" type="range" min="10" max="1000" value="400" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="genArrayBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Generate</button>
+                        <button id="shuffleArrayBtn" class="btn p-3 rounded-lg font-medium text-slate-700 border border-slate-300">Shuffle</button>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">3. Run</h2>
+                <div class="space-y-3">
+                    <button id="runSortBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Run</button>
+                    <div class="flex justify-center gap-4">
+                        <button id="pauseSortBtn" class="btn p-2 rounded-full w-10 h-10 text-slate-700 border border-slate-300" disabled><i class="fas fa-pause"></i></button>
+                        <button id="resumeSortBtn" class="btn p-2 rounded-full w-10 h-10 text-slate-700 border border-slate-300" disabled><i class="fas fa-play"></i></button>
+                    </div>
+                    <button id="resetSortBtn" class="w-full bg-slate-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors">Reset</button>
+                </div>
+            </div>
+        </div>
+        <div class="flex-grow order-1 md:order-2 min-h-0 flex flex-col gap-4">
+            <div id="sortCanvasContainer" class="flex-grow flex items-end justify-center bg-white rounded-lg border p-4 overflow-hidden">
+                <div id="bars" class="w-full h-full flex items-end gap-1"></div>
+            </div>
+        </div>
+        <div class="w-full md:w-80 lg:w-96 p-6 info-panel flex flex-col gap-4 order-3 overflow-y-auto">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">Pseudocode</h2>
+                <div id="sortPseudocode" class="p-2 bg-slate-50 rounded-lg text-slate-800"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-stackqueue" class="hidden flex-grow flex flex-col md:flex-row gap-4 p-4 overflow-hidden">
+        <div class="flex-grow grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="p-6 controls-panel flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">Stack <span class="text-xs font-semibold text-slate-500">(LIFO)</span></h2>
+                <div class="flex gap-2">
+                    <input id="stackInput" class="flex-1 p-2 border border-slate-300 rounded-md" placeholder="Value" />
+                    <button id="stackPush" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-solid fa-circle-arrow-up mr-1"></i>Push</button>
+                    <button id="stackPop" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-solid fa-arrow-rotate-left mr-1"></i>Pop</button>
+                    <button id="stackPeek" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-regular fa-eye mr-1"></i>Peek</button>
+                    <button id="stackClear" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-regular fa-trash-can mr-1"></i>Clear</button>
+                </div>
+                <div class="mt-2 text-xs text-slate-500">Top at the top. Latest element has <span class="font-semibold">TOP</span> badge.</div>
+                <div id="stackView" class="stack-grid"></div>
+            </div>
+            <div class="p-6 controls-panel flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">Queue <span class="text-xs font-semibold text-slate-500">(FIFO)</span></h2>
+                <div class="flex gap-2">
+                    <input id="queueInput" class="flex-1 p-2 border border-slate-300 rounded-md" placeholder="Value" />
+                    <button id="queueEnq" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-solid fa-circle-arrow-right mr-1"></i>Enqueue</button>
+                    <button id="queueDeq" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-solid fa-arrow-right-from-bracket mr-1"></i>Dequeue</button>
+                    <button id="queueFront" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-regular fa-eye mr-1"></i>Front</button>
+                    <button id="queueClear" class="btn p-2 rounded-md text-slate-700 border border-slate-300"><i class="fa-regular fa-trash-can mr-1"></i>Clear</button>
+                </div>
+                <div class="mt-2 text-xs text-slate-500">Front on the left. First element has <span class="font-semibold">FRONT</span> badge. Rear grows to the right.</div>
+                <div id="queueView" class="queue-grid"></div>
+            </div>
+        </div>
+        <div class="w-full md:w-80 lg:w-96 p-6 info-panel flex flex-col gap-4 order-3 overflow-y-auto">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">Notes</h2>
+                <div class="p-2 bg-slate-50 rounded-lg text-slate-800 text-sm space-y-2">
+                    <p><strong>Stack</strong>: LIFO structure. Operations: push, pop, peek.</p>
+                    <p class="text-slate-600">Push: O(1), Pop: O(1), Peek: O(1)</p>
+                    <p><strong>Queue</strong>: FIFO structure. Operations: enqueue, dequeue, front.</p>
+                    <p class="text-slate-600">Enqueue: O(1), Dequeue: O(1), Front: O(1)</p>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">Animation Speed</h2>
+                <div class="flex items-center gap-3">
+                    <label for="sqSpeed" class="text-sm font-medium text-slate-600">Speed:</label>
+                    <input id="sqSpeed" type="range" min="100" max="1200" value="400" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">Operation Log</h2>
+                <div id="opLog" class="p-2 bg-slate-50 rounded-lg text-slate-800 text-sm space-y-1 max-h-48 overflow-auto"></div>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-700 mb-2">Code Snippet</h2>
+                <pre id="sqCode" class="p-3 bg-slate-900 text-slate-100 rounded-lg text-sm overflow-auto"><code>// Perform an operation to see code...</code></pre>
+            </div>
+        </div>
+    </div>
+    </main>
+
+    <main id="page-learn" class="page hidden flex-grow overflow-auto">
+        <div class="max-w-7xl mx-auto p-6 space-y-6">
+            <section class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-xl font-semibold text-slate-800 mb-2">Master Data Structures & Algorithms</h2>
+                <p class="text-slate-600">Explore concepts with concise theory and jump straight into interactive visualizations.</p>
+            </section>
+            <section class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <article class="card bg-white rounded-lg border p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-800">Graphs</h3>
+                        <p class="text-slate-600 mt-2">BFS/DFS, Dijkstra, A*, Bellman-Ford, and MST (Prim/Kruskal). Visualize directed/undirected, weighted/unweighted graphs.</p>
+                        <ul class="mt-3 text-sm text-slate-500 list-disc list-inside">
+                            <li>Shortest paths and heuristics</li>
+                            <li>Topological sorting (DAGs)</li>
+                            <li>Import/Export and presets</li>
+                        </ul>
+                    </div>
+                    <div class="mt-4 flex gap-2">
+                        <button data-open="graphs" class="open-btn px-3 py-2 rounded-md bg-indigo-600 text-white text-sm">Open in Visualizer</button>
+                        <button data-preset="grid" class="open-preset px-3 py-2 rounded-md bg-slate-100 text-slate-700 text-sm">Grid Preset</button>
+                    </div>
+                </article>
+                <article class="card bg-white rounded-lg border p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-800">Sorting</h3>
+                        <p class="text-slate-600 mt-2">See how arrays transform step-by-step with 6 core algorithms and speed/size control.</p>
+                        <ul class="mt-3 text-sm text-slate-500 list-disc list-inside">
+                            <li>Bubble, Insertion, Selection</li>
+                            <li>Merge, Quick, Heap</li>
+                            <li>Pause/resume and bar animations</li>
+                        </ul>
+                    </div>
+                    <div class="mt-4">
+                        <button data-open="sorting" class="open-btn px-3 py-2 rounded-md bg-indigo-600 text-white text-sm">Open in Visualizer</button>
+                    </div>
+                </article>
+                <article class="card bg-white rounded-lg border p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-800">Stacks & Queues</h3>
+                        <p class="text-slate-600 mt-2">Practice LIFO and FIFO operations. Great for understanding recursion and scheduling.</p>
+                        <ul class="mt-3 text-sm text-slate-500 list-disc list-inside">
+                            <li>Push/Pop/Peek</li>
+                            <li>Enqueue/Dequeue/Front</li>
+                            <li>Clean, clear state views</li>
+                        </ul>
+                    </div>
+                    <div class="mt-4">
+                        <button data-open="stackqueue" class="open-btn px-3 py-2 rounded-md bg-indigo-600 text-white text-sm">Open in Visualizer</button>
+                    </div>
+                </article>
+            </section>
+        </div>
+    </main>
+
+    <div id="algoModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modalTitle" class="text-2xl font-bold text-slate-800 mb-4">Algorithm Information</h2>
+            <div id="modalBody" class="space-y-4 text-slate-600"></div>
+            <button id="closeModalBtn" class="mt-6 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Close</button>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Router ---
+            const pageNav = document.getElementById('pageNav');
+            const pageButtons = pageNav ? Array.from(pageNav.querySelectorAll('.page-btn')) : [];
+            const pages = {
+                visualize: document.getElementById('page-visualize'),
+                learn: document.getElementById('page-learn')
+            };
+            function switchPage(name) {
+                Object.entries(pages).forEach(([key, el]) => {
+                    if (!el) return;
+                    if (key === name) {
+                        el.classList.remove('hidden');
+                        requestAnimationFrame(() => el.classList.add('visible'));
+                    } else {
+                        el.classList.remove('visible');
+                        el.classList.add('hidden');
+                    }
+                });
+                pageButtons.forEach(btn => {
+                    if (btn.getAttribute('data-page') === name) {
+                        btn.classList.add('bg-slate-900','text-white');
+                        btn.classList.remove('text-slate-700');
+                    } else {
+                        btn.classList.remove('bg-slate-900','text-white');
+                        btn.classList.add('text-slate-700');
+                    }
+                });
+                // Tabs visibility: only on visualize page
+                const tabs = document.getElementById('tabs');
+                if (tabs) tabs.style.display = name === 'visualize' ? 'flex' : 'none';
+            }
+            function handleHashRoute() {
+                const hash = (location.hash || '#/visualize').replace('#/','');
+                switchPage(hash === 'learn' ? 'learn' : 'visualize');
+            }
+            window.addEventListener('hashchange', handleHashRoute);
+            if (pageNav) pageNav.addEventListener('click', (e) => {
+                const target = e.target.closest('.page-btn');
+                if (!target) return;
+                const page = target.getAttribute('data-page');
+                history.replaceState(null,'',`#/${page}`);
+                handleHashRoute();
+            });
+            handleHashRoute();
+            // --- Tabs ---
+            const tabsNav = document.getElementById('tabs');
+            const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+            const tabViews = {
+                graphs: document.getElementById('tab-graphs'),
+                sorting: document.getElementById('tab-sorting'),
+                stackqueue: document.getElementById('tab-stackqueue')
+            };
+            function switchTab(name) {
+                Object.entries(tabViews).forEach(([key, el]) => {
+                    if (key === name) el.classList.remove('hidden'); else el.classList.add('hidden');
+                });
+                tabButtons.forEach(btn => {
+                    if (btn.getAttribute('data-tab') === name) {
+                        btn.classList.add('bg-indigo-600','text-white');
+                        btn.classList.remove('text-slate-700');
+                    } else {
+                        btn.classList.remove('bg-indigo-600','text-white');
+                        btn.classList.add('text-slate-700');
+                    }
+                });
+            }
+            tabsNav.addEventListener('click', (e) => {
+                const target = e.target.closest('.tab-btn');
+                if (!target) return;
+                switchTab(target.getAttribute('data-tab'));
+            });
+            // Learn page deep links
+            document.body.addEventListener('click', (e) => {
+                const openBtn = e.target.closest('.open-btn');
+                const openPreset = e.target.closest('.open-preset');
+                if (openBtn) {
+                    const tab = openBtn.getAttribute('data-open');
+                    history.replaceState(null,'','#/visualize'); handleHashRoute(); switchTab(tab);
+                }
+                if (openPreset) {
+                    history.replaceState(null,'','#/visualize'); handleHashRoute(); switchTab('graphs');
+                    // Use grid preset
+                    const btn = document.getElementById('presetGridBtn'); if (btn) btn.click();
+                }
+            });
+            // --- Graphs: DOM Elements ---
+            const canvas = document.getElementById('graphCanvas'), ctx = canvas.getContext('2d');
+            const unweightedBtn = document.getElementById('unweightedBtn'), weightedBtn = document.getElementById('weightedBtn');
+            const undirectedBtn = document.getElementById('undirectedBtn'), directedBtn = document.getElementById('directedBtn');
+            const addNodeBtn = document.getElementById('addNodeBtn'), addEdgeBtn = document.getElementById('addEdgeBtn');
+            const dragNodeBtn = document.getElementById('dragNodeBtn'), deleteBtn = document.getElementById('deleteBtn');
+            const setStartBtn = document.getElementById('setStartBtn'), setEndBtn = document.getElementById('setEndBtn');
+            const algorithmSelect = document.getElementById('algorithmSelect'), runBtn = document.getElementById('runBtn'), resetBtn = document.getElementById('resetBtn');
+            const statusText = document.getElementById('statusText'), speedRange = document.getElementById('speedRange');
+            const pauseBtn = document.getElementById('pauseBtn'), resumeBtn = document.getElementById('resumeBtn'), nextStepBtn = document.getElementById('nextStepBtn');
+            const pseudocodeContainer = document.getElementById('pseudocodeContainer'), dsContainer = document.getElementById('dsContainer'), dsTitle = document.getElementById('ds-title');
+            const algoInfoBtn = document.getElementById('algoInfoBtn'), algoModal = document.getElementById('algoModal');
+            const modalTitle = document.getElementById('modalTitle'), modalBody = document.getElementById('modalBody'), closeModalBtn = document.getElementById('closeModalBtn');
+            const importBtn = document.getElementById('importBtn'), exportBtn = document.getElementById('exportBtn');
+            const presetGridBtn = document.getElementById('presetGridBtn'), presetDagBtn = document.getElementById('presetDagBtn');
+            const inlineEditor = document.getElementById('inlineEditor');
+            const inlineInput = document.getElementById('inlineInput');
+            const inlineOk = document.getElementById('inlineOk');
+            const inlineCancel = document.getElementById('inlineCancel');
+            
+            const controlButtons = [addNodeBtn, addEdgeBtn, setStartBtn, setEndBtn, dragNodeBtn, deleteBtn];
+
+            // --- State Variables ---
+            let nodes = [], edges = [], startNode = null, endNode = null, mode = 'addNode', graphType = 'unweighted';
+            let isDirected = false;
+            let edgeStartNode = null, isAnimating = false, isPaused = false, resolveStep = null, nodeCounter = 0;
+            let isDragging = false, draggedNode = null, offsetX, offsetY, animationSpeed = 150;
+            let pendingNewNode = null;
+
+            const NODE_RADIUS = 20;
+
+            const pseudocode = {
+                bfs: [
+                    "1. Create a queue and add the start node's path.",
+                    "2. Create a set to store visited nodes.",
+                    "3. While the queue is not empty:",
+                    "4.   Dequeue the current path.",
+                    "5.   Get the last node from the path.",
+                    "6.   If node is not visited:",
+                    "7.     Mark node as visited.",
+                    "8.     If node is the end node, return path.",
+                    "9.     For each neighbor of the node:",
+                    "10.      Create a new path and enqueue it."
+                ],
+                dfs: [
+                    "1. Create a stack and add the start node's path.",
+                    "2. Create a set to store visited nodes.",
+                    "3. While the stack is not empty:",
+                    "4.   Pop the current path.",
+                    "5.   Get the last node from the path.",
+                    "6.   If node is not visited:",
+                    "7.     Mark node as visited.",
+                    "8.     If node is the end node, return path.",
+                    "9.     For each neighbor of the node:",
+                    "10.      Create a new path and push it."
+                ],
+                astar: [
+                    "1. Create a priority queue (open set).",
+                    "2. Initialize gScore and fScore for all nodes.",
+                    "3. Add start node to the open set.",
+                    "4. While the open set is not empty:",
+                    "5.   Get the node with the lowest fScore.",
+                    "6.   If current is the end, reconstruct & return path.",
+                    "7.   For each neighbor of the current node:",
+                    "8.     Calculate tentative gScore.",
+                    "9.     If tentative gScore is better:",
+                    "10.      Update cameFrom, gScore, and fScore.",
+                    "11.      Add neighbor to open set if not there."
+                ],
+                dijkstra: [
+                    "1. Create a priority queue of nodes to visit.",
+                    "2. Set distances to all nodes as infinity, except start (0).",
+                    "3. Add start node to the priority queue.",
+                    "4. While the priority queue is not empty:",
+                    "5.   Extract the node with the smallest distance.",
+                    "6.   If node has been visited, continue.",
+                    "7.   Mark node as visited.",
+                    "8.   If node is the end node, return path.",
+                    "9.   For each neighbor of the node:",
+                    "10.    If new path to neighbor is shorter:",
+                    "11.      Update distance and add to queue."
+                ]
+                ,
+                bellman: [
+                    "1. Initialize distance[start]=0, others=∞.",
+                    "2. Repeat V-1 times:",
+                    "3.   For each edge (u,v,w):",
+                    "4.     If dist[u]+w < dist[v], relax v.",
+                    "5. Check for negative cycles with one more pass."
+                ],
+                topo: [
+                    "1. Compute indegrees for all vertices.",
+                    "2. Enqueue all vertices with indegree 0.",
+                    "3. While queue not empty:",
+                    "4.   Dequeue u, append to order.",
+                    "5.   Decrease indegree of u's neighbors; enqueue if 0."
+                ],
+                prim: [
+                    "1. Start from any vertex; add to MST set.",
+                    "2. Push all outgoing edges to a min-heap.",
+                    "3. Extract smallest edge (u,v) to unseen v.",
+                    "4. Add v and its edges; repeat until |V|-1 edges."
+                ],
+                kruskal: [
+                    "1. Sort all edges by weight ascending.",
+                    "2. Initialize DSU; iterate edges:",
+                    "3.   If u and v in different sets, union and add edge.",
+                    "4. Stop when |V|-1 edges added."
+                ]
+            };
+            const algoInfo = {
+                bfs: {
+                    title: "Breadth-First Search (BFS)",
+                    desc: "An algorithm for traversing or searching tree or graph data structures. It starts at the root and explores all of the neighbor nodes at the present depth prior to moving on to the nodes at the next depth level.",
+                    complexity: "Time: O(V + E), Space: O(V)",
+                    use: "Best for finding the shortest path on unweighted graphs."
+                },
+                dfs: {
+                    title: "Depth-First Search (DFS)",
+                    desc: "An algorithm for traversing or searching tree or graph data structures. The algorithm starts at the root node and explores as far as possible along each branch before backtracking.",
+                    complexity: "Time: O(V + E), Space: O(V)",
+                    use: "Good for pathfinding, cycle detection, and topological sorting."
+                },
+                astar: {
+                    title: "A* Search",
+                    desc: "An informed search algorithm, or a 'best-first search', meaning it is formulated in terms of weighted graphs: starting from a specific starting node of a graph, it aims to find a path to the given goal node having the smallest cost (least distance travelled, shortest time, etc.). It uses a heuristic to guide its search.",
+                    complexity: "Time: O(E), Space: O(V)",
+                    use: "Excellent for pathfinding in games and other applications where a good heuristic is available."
+                },
+                dijkstra: {
+                    title: "Dijkstra's Algorithm",
+                    desc: "An algorithm for finding the shortest paths between nodes in a graph, which may represent, for example, road networks. It works on weighted graphs with non-negative edge weights.",
+                    complexity: "Time: O(E log V), Space: O(V)",
+                    use: "Ideal for finding the shortest path in weighted graphs, like in network routing."
+                }
+            };
+
+            // --- General Setup ---
+            function initialize() {
+                // Default: Graphs tab
+                switchTab('graphs');
+                resizeCanvas();
+                setMode('addNode');
+                setGraphType('unweighted');
+                updatePseudocode();
+                initSorting();
+                initStackQueue();
+            }
+
+            function resizeCanvas() {
+                const container = document.getElementById('canvas-container');
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                draw();
+            }
+            window.addEventListener('resize', resizeCanvas);
+
+            // --- Drawing ---
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawEdges();
+                drawNodes();
+            }
+
+            function drawEdges() {
+                edges.forEach(edge => {
+                    const fromNode = nodes.find(n => n.id === edge.from);
+                    const toNode = nodes.find(n => n.id === edge.to);
+                    if (!fromNode || !toNode) return;
+                    ctx.beginPath();
+                    ctx.moveTo(fromNode.x, fromNode.y);
+                    ctx.lineTo(toNode.x, toNode.y);
+                    ctx.strokeStyle = edge.color || '#94a3b8';
+                    ctx.lineWidth = edge.width || 3;
+                    ctx.stroke();
+                    if (isDirected) {
+                        const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x);
+                        const arrowLength = 10;
+                        const arrowAngle = Math.PI / 7;
+                        const endX = toNode.x - NODE_RADIUS * Math.cos(angle);
+                        const endY = toNode.y - NODE_RADIUS * Math.sin(angle);
+                        ctx.beginPath();
+                        ctx.moveTo(endX, endY);
+                        ctx.lineTo(endX - arrowLength * Math.cos(angle - arrowAngle), endY - arrowLength * Math.sin(angle - arrowAngle));
+                        ctx.moveTo(endX, endY);
+                        ctx.lineTo(endX - arrowLength * Math.cos(angle + arrowAngle), endY - arrowLength * Math.sin(angle + arrowAngle));
+                        ctx.stroke();
+                    }
+                    if (graphType === 'weighted' && edge.weight !== undefined) {
+                        const midX = (fromNode.x + toNode.x) / 2;
+                        const midY = (fromNode.y + toNode.y) / 2;
+                        ctx.font = 'bold 14px Inter';
+                        const text = edge.weight.toString();
+                        const textMetrics = ctx.measureText(text);
+                        ctx.fillStyle = '#f8fafc';
+                        ctx.fillRect(midX - textMetrics.width / 2 - 4, midY - 10, textMetrics.width + 8, 20);
+                        ctx.fillStyle = '#334155';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(text, midX, midY);
+                    }
+                });
+            }
+
+            function drawNodes() {
+                nodes.forEach(node => {
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, NODE_RADIUS, 0, 2 * Math.PI);
+                    let fillColor = '#cbd5e1';
+                    if (node.isStart) fillColor = '#22c55e';
+                    else if (node.isEnd) fillColor = '#ef4444';
+                    else if (node.isPath) fillColor = '#60a5fa';
+                    else if (node.isVisited) fillColor = '#a5b4fc';
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+                    ctx.strokeStyle = '#475569';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 16px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(node.value, node.x, node.y);
+                });
+            }
+            
+            // --- UI and Event Handlers ---
+            function setGraphType(type) {
+                graphType = type;
+                if (type === 'unweighted') {
+                    unweightedBtn.classList.add('btn-active');
+                    weightedBtn.classList.remove('btn-active');
+                    edges.forEach(e => delete e.weight);
+                } else {
+                    weightedBtn.classList.add('btn-active');
+                    unweightedBtn.classList.remove('btn-active');
+                    edges.forEach(e => { if(e.weight === undefined) e.weight = 1; });
+                }
+                draw();
+            }
+
+            function setMode(newMode) {
+                if (isAnimating) return;
+                mode = newMode;
+                edgeStartNode = null;
+                controlButtons.forEach(btn => {
+                    btn.classList.remove('btn-active');
+                    btn.classList.remove('btn-delete-active');
+                });
+                const targetBtn = document.getElementById(`${newMode}Btn`);
+                if (newMode === 'delete') {
+                    targetBtn.classList.add('btn-delete-active');
+                    canvas.style.cursor = 'not-allowed';
+                } else {
+                    targetBtn.classList.add('btn-active');
+                    canvas.style.cursor = (newMode === 'dragNode') ? 'move' : 'crosshair';
+                }
+            }
+            
+            unweightedBtn.addEventListener('click', () => setGraphType('unweighted'));
+            weightedBtn.addEventListener('click', () => setGraphType('weighted'));
+            undirectedBtn.addEventListener('click', () => { isDirected = false; undirectedBtn.classList.add('btn-active'); directedBtn.classList.remove('btn-active'); draw(); });
+            directedBtn.addEventListener('click', () => { isDirected = true; directedBtn.classList.add('btn-active'); undirectedBtn.classList.remove('btn-active'); draw(); });
+            addNodeBtn.addEventListener('click', () => setMode('addNode'));
+            addEdgeBtn.addEventListener('click', () => setMode('addEdge'));
+            dragNodeBtn.addEventListener('click', () => setMode('dragNode'));
+            deleteBtn.addEventListener('click', () => setMode('delete'));
+            setStartBtn.addEventListener('click', () => setMode('setStart'));
+            setEndBtn.addEventListener('click', () => setMode('setEnd'));
+            resetBtn.addEventListener('click', reset);
+            runBtn.addEventListener('click', runAlgorithm);
+            
+            canvas.addEventListener('mousedown', (e) => {
+                if (isAnimating || mode !== 'dragNode') return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                const node = getNodeAt(x, y);
+                if (node) {
+                    isDragging = true;
+                    draggedNode = node;
+                    offsetX = x - node.x;
+                    offsetY = y - node.y;
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (isAnimating || !isDragging || !draggedNode) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                draggedNode.x = x - offsetX;
+                draggedNode.y = y - offsetY;
+                draw();
+            });
+
+            canvas.addEventListener('mouseup', () => { isDragging = false; draggedNode = null; });
+            canvas.addEventListener('mouseleave', () => { isDragging = false; draggedNode = null; });
+            
+            canvas.addEventListener('click', (e) => {
+                if (isAnimating || mode === 'dragNode' || isDragging) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                const clickedNode = getNodeAt(x, y);
+
+                switch (mode) {
+                    case 'addNode':
+                        if (!clickedNode) {
+                            pendingNewNode = { x, y };
+                            positionInlineEditor(x, y);
+                            inlineInput.value = `${nodeCounter}`;
+                            inlineEditor.style.display = 'flex';
+                            setTimeout(()=>inlineInput.focus(), 0);
+                        }
+                        break;
+                    case 'addEdge': handleEdgeCreation(clickedNode); break;
+                    case 'delete': handleDelete(x, y, clickedNode); break;
+                    case 'setStart': handleSetPoint(clickedNode, 'start'); break;
+                    case 'setEnd': handleSetPoint(clickedNode, 'end'); break;
+                }
+                draw();
+            });
+
+            function positionInlineEditor(x, y) {
+                const parentRect = document.getElementById('canvas-container').getBoundingClientRect();
+                inlineEditor.style.left = `${x}px`;
+                inlineEditor.style.top = `${y}px`;
+            }
+            inlineOk.addEventListener('click', () => {
+                if (!pendingNewNode) { inlineEditor.style.display = 'none'; return; }
+                const value = inlineInput.value.trim();
+                if (value) {
+                    nodes.push({ id: nodeCounter++, value, x: pendingNewNode.x, y: pendingNewNode.y, edges: [], isStart: false, isEnd: false, isVisited: false, isPath: false });
+                }
+                pendingNewNode = null;
+                inlineEditor.style.display = 'none';
+                draw();
+            });
+            inlineCancel.addEventListener('click', () => { pendingNewNode = null; inlineEditor.style.display = 'none'; });
+            inlineInput.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') inlineOk.click();
+                if (ev.key === 'Escape') inlineCancel.click();
+            });
+
+            canvas.addEventListener('dblclick', (e) => {
+                if (isAnimating) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                const clickedNode = getNodeAt(x, y);
+                if (clickedNode) {
+                    const newValue = prompt("Edit node value:", clickedNode.value);
+                    if (newValue) {
+                        clickedNode.value = newValue;
+                        draw();
+                    }
+                }
+            });
+
+            speedRange.addEventListener('input', (e) => { animationSpeed = 1050 - e.target.value; });
+            pauseBtn.addEventListener('click', () => { isPaused = true; pauseBtn.disabled = true; resumeBtn.disabled = false; nextStepBtn.disabled = false; });
+            resumeBtn.addEventListener('click', () => { isPaused = false; if (resolveStep) resolveStep(); pauseBtn.disabled = false; resumeBtn.disabled = true; nextStepBtn.disabled = true; });
+            nextStepBtn.addEventListener('click', () => { if (resolveStep) resolveStep(); });
+            algorithmSelect.addEventListener('change', updatePseudocode);
+            algoInfoBtn.addEventListener('click', showAlgoInfo);
+            closeModalBtn.addEventListener('click', () => algoModal.classList.remove('visible'));
+            algoModal.addEventListener('click', (e) => { if (e.target === algoModal) algoModal.classList.remove('visible'); });
+
+            // --- Core Logic & Helpers ---
+            function updateStatus(text) { statusText.innerHTML = text; }
+            function getNodeAt(x, y) {
+                for (let i = nodes.length - 1; i >= 0; i--) {
+                    const node = nodes[i];
+                    if (Math.sqrt((node.x - x) ** 2 + (node.y - y) ** 2) < NODE_RADIUS) return node;
+                }
+                return null;
+            }
+            function handleEdgeCreation(node) {
+                if (!node) { edgeStartNode = null; return; };
+                if (!edgeStartNode) {
+                    edgeStartNode = node;
+                } else {
+                    if (edgeStartNode !== node && !edgeExists(edgeStartNode, node)) {
+                        let weight = 1;
+                        if (graphType === 'weighted') {
+                            const weightInput = prompt(`Enter weight for edge (${edgeStartNode.value} - ${node.value}):`, 1);
+                            const parsedWeight = parseInt(weightInput);
+                            if (!isNaN(parsedWeight)) weight = parsedWeight; // Allow zero or negative weights for Bellman-Ford
+                        }
+                        edges.push({ from: edgeStartNode.id, to: node.id, weight: weight });
+                        nodes.find(n => n.id === edgeStartNode.id).edges.push(node.id);
+                        if (!isDirected) {
+                            nodes.find(n => n.id === node.id).edges.push(edgeStartNode.id);
+                        }
+                    }
+                    edgeStartNode = null;
+                }
+            }
+            function handleDelete(x, y, clickedNode) {
+                if (clickedNode) {
+                    nodes = nodes.filter(n => n.id !== clickedNode.id);
+                    edges = edges.filter(e => e.from !== clickedNode.id && e.to !== clickedNode.id);
+                    nodes.forEach(n => { n.edges = n.edges.filter(edgeId => edgeId !== clickedNode.id); });
+                    if (startNode === clickedNode.id) startNode = null;
+                    if (endNode === clickedNode.id) endNode = null;
+                } else {
+                    const clickedEdgeIndex = edges.findIndex(edge => {
+                        const fromNode = nodes.find(n => n.id === edge.from);
+                        const toNode = nodes.find(n => n.id === edge.to);
+                        if (!fromNode || !toNode) return false;
+                        return pDistance(x, y, fromNode.x, fromNode.y, toNode.x, toNode.y) < 5;
+                    });
+                    if (clickedEdgeIndex > -1) {
+                        const edgeToRemove = edges[clickedEdgeIndex];
+                        // Always remove the forward adjacency link
+                        nodes.find(n => n.id === edgeToRemove.from).edges = nodes.find(n => n.id === edgeToRemove.from).edges.filter(id => id !== edgeToRemove.to);
+                        
+                        // If graph is undirected, also remove the reverse link
+                        if (!isDirected) {
+                            nodes.find(n => n.id === edgeToRemove.to).edges = nodes.find(n => n.id === edgeToRemove.to).edges.filter(id => id !== edgeToRemove.from);
+                        }
+                        
+                        edges.splice(clickedEdgeIndex, 1);
+                    }
+                }
+            }
+            function pDistance(x, y, x1, y1, x2, y2) {
+                const A = x - x1, B = y - y1, C = x2 - x1, D = y2 - y1;
+                const dot = A * C + B * D, len_sq = C * C + D * D;
+                let param = -1;
+                if (len_sq != 0) param = dot / len_sq;
+                let xx, yy;
+                if (param < 0) { xx = x1; yy = y1; } 
+                else if (param > 1) { xx = x2; yy = y2; } 
+                else { xx = x1 + param * C; yy = y1 + param * D; }
+                return Math.sqrt((x - xx) ** 2 + (y - yy) ** 2);
+            }
+            function edgeExists(node1, node2) {
+                if (isDirected) return edges.some(edge => (edge.from === node1.id && edge.to === node2.id));
+                return edges.some(edge => (edge.from === node1.id && edge.to === node2.id) || (edge.from === node2.id && edge.to === node1.id));
+            }
+            function getEdgeWeight(node1_id, node2_id) {
+                if (graphType === 'unweighted') return 1;
+                const edge = edges.find(e => (e.from === node1_id && e.to === node2_id) || (!isDirected && (e.from === node2_id && e.to === node1_id)));
+                return edge ? edge.weight : 1;
+            }
+            function handleSetPoint(node, type) {
+                if (!node) return;
+                if (type === 'start') {
+                    if (startNode !== null) { const old = nodes.find(n => n.id === startNode); if(old) old.isStart = false; }
+                    startNode = node.id; node.isStart = true;
+                    if(node.isEnd) { node.isEnd = false; endNode = null; }
+                } else {
+                    if (endNode !== null) { const old = nodes.find(n => n.id === endNode); if(old) old.isEnd = false; }
+                    endNode = node.id; node.isEnd = true;
+                    if(node.isStart) { node.isStart = false; startNode = null; }
+                }
+            }
+            function reset() {
+                isAnimating = false; nodes = []; edges = []; startNode = null; endNode = null;
+                nodeCounter = 0; edgeStartNode = null;
+                setMode('addNode'); setGraphType('unweighted'); isDirected = false; undirectedBtn.classList.add('btn-active'); directedBtn.classList.remove('btn-active');
+                clearVisualizationState();
+                updateStatus("Select 'Add Node' to begin.");
+            }
+            function clearVisualizationState() {
+                nodes.forEach(node => { node.isVisited = false; node.isPath = false; });
+                edges.forEach(edge => { edge.color = '#94a3b8'; edge.width = 3; });
+                dsContainer.innerHTML = '';
+                updatePseudocode();
+                draw();
+            }
+            function showAlgoInfo() {
+                const selectedAlgo = algorithmSelect.value;
+                const info = algoInfo[selectedAlgo];
+                modalTitle.textContent = info.title;
+                modalBody.innerHTML = `
+                    <p>${info.desc}</p>
+                    <p><strong>Complexity:</strong> ${info.complexity}</p>
+                    <p><strong>Use Case:</strong> ${info.use}</p>
+                `;
+                algoModal.classList.add('visible');
+            }
+            async function step() {
+                draw();
+                if (isPaused) {
+                    await new Promise(resolve => { resolveStep = resolve; });
+                    resolveStep = null;
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, animationSpeed));
+                }
+            }
+            function updatePseudocode(line = -1) {
+                const algo = algorithmSelect.value;
+                const code = pseudocode[algo];
+                pseudocodeContainer.innerHTML = code.map((text, index) => 
+                    `<div class="pseudo-line ${index === line ? 'highlight' : ''}">${text}</div>`
+                ).join('');
+            }
+            function updateDataStructure(data, type) {
+                dsTitle.textContent = type;
+                dsContainer.innerHTML = data.map(item => {
+                    let text;
+                    if (Array.isArray(item)) { // For BFS/DFS paths
+                        text = item.map(id => nodes.find(n => n.id === id)?.value ?? '?').join('→');
+                    } else if (typeof item === 'object' && item !== null && 'dist' in item) { // For Dijkstra
+                        const nodeValue = nodes.find(n => n.id === item.id)?.value ?? '?';
+                        text = `${nodeValue} (d:${item.dist.toFixed(0)})`;
+                    } else if (typeof item === 'object' && item !== null && 'f' in item) { // For A*
+                        const nodeValue = nodes.find(n => n.id === item.id)?.value ?? '?';
+                        text = `${nodeValue} (f:${item.f.toFixed(0)})`;
+                    } else { // Fallback
+                        text = nodes.find(n => n.id === item)?.value ?? '?';
+                    }
+                    return `<div class="ds-item">${text}</div>`;
+                }).join('');
+            }
+            
+            // --- ALGORITHMS ---
+            async function bfs() {
+                updateDataStructure([], 'Queue');
+                let queue = [[startNode]];
+                let visited = new Set();
+                updatePseudocode(0); await step();
+                updateDataStructure(queue, 'Queue');
+                updatePseudocode(1); await step();
+
+                while (queue.length > 0) {
+                    updatePseudocode(2); await step();
+                    let path = queue.shift();
+                    updateDataStructure(queue, 'Queue');
+                    updatePseudocode(3); await step();
+                    let node_id = path[path.length - 1];
+                    updatePseudocode(4); await step();
+                    const currentNode = nodes.find(n => n.id === node_id);
+                    
+                    if (currentNode && !visited.has(node_id)) {
+                        updatePseudocode(5); await step();
+                        currentNode.isVisited = true;
+                        visited.add(node_id);
+                        updatePseudocode(6); await step();
+                        
+                        if (node_id === endNode) {
+                            updatePseudocode(7); await step();
+                            return path;
+                        }
+
+                        for (const neighbor_id of currentNode.edges) {
+                            updatePseudocode(8); await step();
+                            if (!visited.has(neighbor_id)) {
+                                let new_path = [...path, neighbor_id];
+                                queue.push(new_path);
+                                updateDataStructure(queue, 'Queue');
+                                updatePseudocode(9); await step();
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+            async function dfs() {
+                updateDataStructure([], 'Stack');
+                let stack = [[startNode]];
+                let visited = new Set();
+                updatePseudocode(0); await step();
+                updateDataStructure(stack, 'Stack');
+                updatePseudocode(1); await step();
+
+                while (stack.length > 0) {
+                    updatePseudocode(2); await step();
+                    let path = stack.pop();
+                    updateDataStructure(stack, 'Stack');
+                    updatePseudocode(3); await step();
+                    let node_id = path[path.length - 1];
+                    updatePseudocode(4); await step();
+                    const currentNode = nodes.find(n => n.id === node_id);
+                    
+                    if (currentNode && !visited.has(node_id)) {
+                        updatePseudocode(5); await step();
+                        currentNode.isVisited = true;
+                        visited.add(node_id);
+                        updatePseudocode(6); await step();
+                        
+                        if (node_id === endNode) {
+                            updatePseudocode(7); await step();
+                            return path;
+                        }
+
+                        for (const neighbor_id of currentNode.edges.slice().reverse()) {
+                            updatePseudocode(8); await step();
+                            let new_path = [...path, neighbor_id];
+                            stack.push(new_path);
+                            updateDataStructure(stack, 'Stack');
+                            updatePseudocode(9); await step();
+                        }
+                    }
+                }
+                return null;
+            }
+            async function astar() {
+                updateDataStructure([], 'Priority Queue (Open Set)');
+                let openSet = [{id: startNode, f: 0}];
+                let cameFrom = {};
+                let gScore = {};
+                nodes.forEach(node => gScore[node.id] = Infinity);
+                gScore[startNode] = 0;
+                let fScore = {};
+                nodes.forEach(node => fScore[node.id] = Infinity);
+                fScore[startNode] = heuristic(startNode, endNode);
+
+                updatePseudocode(0); await step();
+                updatePseudocode(1); await step();
+                updateDataStructure(openSet, 'Priority Queue (Open Set)');
+                updatePseudocode(2); await step();
+
+                while (openSet.length > 0) {
+                    updatePseudocode(3); await step();
+                    openSet.sort((a, b) => a.f - b.f);
+                    let current = openSet.shift();
+                    let current_id = current.id;
+                    updateDataStructure(openSet, 'Priority Queue (Open Set)');
+                    updatePseudocode(4); await step();
+
+                    const currentNode = nodes.find(n => n.id === current_id);
+                    if(currentNode) currentNode.isVisited = true;
+                    
+                    if (current_id === endNode) {
+                        updatePseudocode(5); await step();
+                        let path = [current_id];
+                        while (current_id in cameFrom) {
+                            current_id = cameFrom[current_id];
+                            path.unshift(current_id);
+                        }
+                        return path;
+                    }
+
+                    for (const neighbor_id of nodes.find(n => n.id === current_id).edges) {
+                        updatePseudocode(6); await step();
+                        let tentative_gScore = gScore[current_id] + getEdgeWeight(current_id, neighbor_id);
+                        updatePseudocode(7); await step();
+                        if (tentative_gScore < gScore[neighbor_id]) {
+                            updatePseudocode(8); await step();
+                            cameFrom[neighbor_id] = current_id;
+                            gScore[neighbor_id] = tentative_gScore;
+                            fScore[neighbor_id] = gScore[neighbor_id] + heuristic(neighbor_id, endNode);
+                            updatePseudocode(9); await step();
+                            if (!openSet.some(item => item.id === neighbor_id)) {
+                                openSet.push({id: neighbor_id, f: fScore[neighbor_id]});
+                                updateDataStructure(openSet, 'Priority Queue (Open Set)');
+                                updatePseudocode(10); await step();
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+            async function dijkstra() {
+                updateDataStructure([], 'Priority Queue');
+                let dist = {};
+                let prev = {};
+                let pq = [];
+
+                nodes.forEach(node => {
+                    dist[node.id] = Infinity;
+                    prev[node.id] = null;
+                });
+                dist[startNode] = 0;
+                updatePseudocode(1); await step();
+
+                pq.push({ id: startNode, dist: 0 });
+                updateDataStructure(pq, 'Priority Queue');
+                updatePseudocode(2); await step();
+
+                while (pq.length > 0) {
+                    updatePseudocode(3); await step();
+                    pq.sort((a, b) => a.dist - b.dist);
+                    let { id: u_id } = pq.shift();
+                    updateDataStructure(pq, 'Priority Queue');
+                    updatePseudocode(4); await step();
+                    
+                    const u_node = nodes.find(n => n.id === u_id);
+                    if (!u_node || u_node.isVisited) {
+                        updatePseudocode(5); await step();
+                        continue;
+                    }
+                    
+                    u_node.isVisited = true;
+                    updatePseudocode(6); await step();
+
+                    if (u_id === endNode) {
+                        updatePseudocode(7); await step();
+                        let path = [];
+                        let curr = endNode;
+                        while(curr !== null) {
+                            path.unshift(curr);
+                            curr = prev[curr];
+                        }
+                        return path;
+                    }
+
+                    for (const v_id of u_node.edges) {
+                        updatePseudocode(8); await step();
+                        const v_node = nodes.find(n => n.id === v_id);
+                        const weight = getEdgeWeight(u_id, v_id);
+                        if (v_node && !v_node.isVisited) {
+                            let alt = dist[u_id] + weight;
+                            updatePseudocode(9); await step();
+                            if (alt < dist[v_id]) {
+                                dist[v_id] = alt;
+                                prev[v_id] = u_id;
+                                pq.push({ id: v_id, dist: alt });
+                                updateDataStructure(pq, 'Priority Queue');
+                                updatePseudocode(10); await step();
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+
+            // --- Run Control ---
+            async function runAlgorithm() {
+                const algorithm = algorithmSelect.value;
+                const needsStartEnd = ['bfs','dfs','astar','dijkstra','bellman'].includes(algorithm);
+                if (needsStartEnd && (startNode === null || endNode === null)) { updateStatus("Please set a start and an end node first."); return; }
+                if (isAnimating) return;
+                isAnimating = true; isPaused = false;
+                [...controlButtons, runBtn, resetBtn, algorithmSelect, unweightedBtn, weightedBtn, directedBtn, undirectedBtn].forEach(btn => btn.disabled = true);
+                pauseBtn.disabled = false; resumeBtn.disabled = true; nextStepBtn.disabled = true;
+                clearVisualizationState();
+                updateStatus(`Running ${algorithm.toUpperCase()}...`);
+                let path;
+                switch (algorithm) {
+                    case 'bfs': path = await bfs(); break;
+                    case 'dfs': path = await dfs(); break;
+                    case 'astar': path = await astar(); break;
+                    case 'dijkstra': path = await dijkstra(); break;
+                    case 'bellman': path = await bellmanFord(); break;
+                    case 'topo': path = await topoSort(); break;
+                    case 'prim': path = await primMST(); break;
+                    case 'kruskal': path = await kruskalMST(); break;
+                }
+                if (path) {
+                    if (algorithm === 'topo') {
+                        updateDataStructure(path, 'Topological Order');
+                        updateStatus('TOPOLOGICAL ORDER computed.');
+                    } else if (algorithm === 'prim' || algorithm === 'kruskal') {
+                        updateStatus('MST computed. Total edges: ' + path.length);
+                    } else {
+                    await visualizePath(path);
+                    let totalCost = 0;
+                    for (let i = 0; i < path.length - 1; i++) { totalCost += getEdgeWeight(path[i], path[i+1]); }
+                    updateStatus(`${algorithm.toUpperCase()} found a path! Cost: ${totalCost}`);
+                    }
+                } else if(isAnimating) { // Avoid showing "not found" if algo itself sets a status (e.g. neg cycle)
+                    updateStatus(`${algorithm.toUpperCase()} could not find a path.`);
+                }
+                isAnimating = false;
+                [...controlButtons, runBtn, resetBtn, algorithmSelect, unweightedBtn, weightedBtn, directedBtn, undirectedBtn].forEach(btn => btn.disabled = false);
+                pauseBtn.disabled = true; resumeBtn.disabled = true; nextStepBtn.disabled = true;
+            }
+
+            async function visualizePath(path) {
+                for (let i = 0; i < path.length - 1; i++) {
+                    const u = path[i], v = path[i + 1];
+                    const nodeU = nodes.find(n => n.id === u);
+                    if(nodeU) nodeU.isPath = true;
+                    const edge = edges.find(e => (e.from === u && e.to === v) || (!isDirected && e.from === v && e.to === u));
+                    if (edge) { edge.color = '#3b82f6'; edge.width = 5; }
+                    draw(); await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                const endNodeObj = nodes.find(n => n.id === path[path.length - 1]);
+                if(endNodeObj) endNodeObj.isPath = true;
+                draw();
+            }
+            function heuristic(node1_id, node2_id) {
+                const node1 = nodes.find(n => n.id === node1_id);
+                const node2 = nodes.find(n => n.id === node2_id);
+                if (!node1 || !node2) return Infinity;
+                return Math.sqrt((node1.x - node2.x) ** 2 + (node1.y - node2.y) ** 2);
+            }
+            
+            // --- Initialize ---
+            // Algorithms added: Bellman-Ford, Topo, Prim, Kruskal
+            async function bellmanFord() {
+                updateDataStructure([], 'Distances');
+                const dist = {}, prev = {};
+                nodes.forEach(n => { dist[n.id] = Infinity; prev[n.id] = null; });
+                dist[startNode] = 0;
+                updatePseudocode(0); await step();
+
+                // Relax edges repeatedly
+                for (let i = 0; i < nodes.length - 1; i++) {
+                    updatePseudocode(1); await step();
+                    for (const e of edges) {
+                        updatePseudocode(2); await step();
+                        const weight = e.weight ?? 1;
+
+                        // --- Relaxation for from -> to ---
+                        if (dist[e.from] !== Infinity && dist[e.from] + weight < dist[e.to]) {
+                            dist[e.to] = dist[e.from] + weight;
+                            prev[e.to] = e.from;
+                            updatePseudocode(3); await step();
+                        }
+                        // --- If undirected, also relax for to -> from ---
+                        if (!isDirected) {
+                            if (dist[e.to] !== Infinity && dist[e.to] + weight < dist[e.from]) {
+                                dist[e.from] = dist[e.to] + weight;
+                                prev[e.from] = e.to;
+                                updatePseudocode(3); await step();
+                            }
+                        }
+                    }
+                }
+
+                // Check for negative weight cycles
+                updatePseudocode(4); await step();
+                for (const e of edges) {
+                    const weight = e.weight ?? 1;
+                    if (dist[e.from] !== Infinity && dist[e.from] + weight < dist[e.to]) {
+                        updateStatus('Negative weight cycle detected!');
+                        return null;
+                    }
+                    if (!isDirected) {
+                        if (dist[e.to] !== Infinity && dist[e.to] + weight < dist[e.from]) {
+                            updateStatus('Negative weight cycle detected!');
+                            return null;
+                        }
+                    }
+                }
+
+                if (dist[endNode] === Infinity) return null;
+                const path = [];
+                let cur = endNode;
+                while (cur !== null) { path.unshift(cur); cur = prev[cur]; }
+                return path;
+            }
+            async function topoSort() {
+                if (!isDirected) { updateStatus('Topological sort requires a Directed Acyclic Graph (DAG).'); return null; }
+                const indeg = {}; nodes.forEach(n => indeg[n.id] = 0);
+                edges.forEach(e => indeg[e.to]++);
+                const queue = Object.keys(indeg).filter(id => indeg[id] === 0).map(Number);
+                updateDataStructure(queue, 'Queue'); updatePseudocode(0); await step(); updatePseudocode(1); await step();
+                const order = [];
+                while (queue.length) {
+                    updatePseudocode(2); await step();
+                    const u = queue.shift(); order.push(u);
+                    updatePseudocode(3); await step();
+                    const uNode = nodes.find(n => n.id === u); if (uNode) uNode.isVisited = true; draw();
+                    for (const v of (nodes.find(n => n.id === u)?.edges || [])) {
+                        indeg[v]--; updatePseudocode(4); await step();
+                        if (indeg[v] === 0) { queue.push(v); updateDataStructure(queue, 'Queue'); }
+                    }
+                }
+                if (order.length !== nodes.length) {
+                    updateStatus('Graph contains a cycle; cannot be topologically sorted.');
+                    return null;
+                }
+                return order;
+            }
+            async function primMST() {
+                if (isDirected) { updateStatus('Prim\'s algorithm requires an Undirected graph.'); return null; }
+                const start = nodes[0]?.id; if (start === undefined) return null;
+                const inMST = new Set([start]);
+                const mstEdges = [];
+                while (inMST.size < nodes.length) {
+                    let best = null;
+                    for (const e of edges) {
+                        const uIn = inMST.has(e.from), vIn = inMST.has(e.to);
+                        if (uIn ^ vIn) { // XOR: one is in MST, the other is not
+                            if (!best || (e.weight ?? 1) < (best.weight ?? 1)) best = e;
+                        }
+                    }
+                    if (!best) break; // No more edges to connect remaining components
+                    mstEdges.push(best);
+                    inMST.add(inMST.has(best.from) ? best.to : best.from);
+                    best.color = '#10b981'; best.width = 5; draw(); await step();
+                }
+                return mstEdges;
+            }
+            async function kruskalMST() {
+                if (isDirected) { updateStatus('Kruskal\'s algorithm requires an Undirected graph.'); return null; }
+                const parent = {}; const rank = {};
+                nodes.forEach(n => { parent[n.id] = n.id; rank[n.id] = 0; });
+                function find(x){ if(parent[x]!==x) parent[x]=find(parent[x]); return parent[x]; }
+                function union(a,b){ a=find(a); b=find(b); if(a===b) return false; if(rank[a]<rank[b]) [a,b]=[b,a]; parent[b]=a; if(rank[a]===rank[b]) rank[a]++; return true; }
+                const sorted = [...edges].sort((a,b)=>(a.weight??1)-(b.weight??1));
+                const mst = [];
+                for (const e of sorted) {
+                    if (union(e.from, e.to)) { mst.push(e); e.color = '#10b981'; e.width = 5; draw(); await step(); }
+                    if (mst.length === nodes.length - 1) break;
+                }
+                return mst;
+            }
+
+            // Import/Export/Preset helpers
+            function serializeGraph() {
+                return JSON.stringify({ nodes, edges, startNode, endNode, graphType, isDirected }, null, 2);
+            }
+            function deserializeGraph(jsonStr) {
+                try {
+                    const data = JSON.parse(jsonStr);
+                    nodes = data.nodes || [];
+                    edges = data.edges || [];
+                    startNode = data.startNode ?? null; endNode = data.endNode ?? null;
+                    graphType = data.graphType || 'unweighted'; setGraphType(graphType);
+                    isDirected = !!data.isDirected; if (isDirected) { directedBtn.classList.add('btn-active'); undirectedBtn.classList.remove('btn-active'); } else { undirectedBtn.classList.add('btn-active'); directedBtn.classList.remove('btn-active'); }
+                    nodeCounter = nodes.reduce((m,n)=>Math.max(m,n.id), -1) + 1;
+                    draw();
+                } catch(e) { alert('Invalid JSON'); }
+            }
+            function makeGridPreset(rows=3, cols=3) {
+                reset();
+                isDirected = false; undirectedBtn.classList.add('btn-active'); directedBtn.classList.remove('btn-active');
+                const gapX = canvas.width/(cols+1), gapY = canvas.height/(rows+1);
+                for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) { nodes.push({ id: nodeCounter, value: nodeCounter, x:(c+1)*gapX, y:(r+1)*gapY, edges:[], isStart:false, isEnd:false, isVisited:false, isPath:false }); nodeCounter++; }
+                function nodeIdAt(r,c){ return r*cols+c; }
+                for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
+                    if (c+1<cols) { const a=nodeIdAt(r,c), b=nodeIdAt(r,c+1); edges.push({from:a,to:b,weight:1}); nodes[a].edges.push(b); nodes[b].edges.push(a); }
+                    if (r+1<rows) { const a=nodeIdAt(r,c), b=nodeIdAt(r+1,c); edges.push({from:a,to:b,weight:1}); nodes[a].edges.push(b); nodes[b].edges.push(a); }
+                }
+                draw();
+            }
+            function makeDagPreset() {
+                reset(); isDirected = true; directedBtn.classList.add('btn-active'); undirectedBtn.classList.remove('btn-active');
+                const cx = canvas.width/6, cy = canvas.height/4;
+                for (let i=0;i<6;i++) { nodes.push({ id: nodeCounter, value: `v${nodeCounter}`, x:(i+1)*cx, y:(i%2?2:1)*cy + 60, edges:[], isStart:false, isEnd:false, isVisited:false, isPath:false }); nodeCounter++; }
+                function add(u,v){ edges.push({from:u,to:v,weight:1}); nodes[u].edges.push(v); }
+                add(0,1); add(0,2); add(1,3); add(2,3); add(3,4); add(2,5);
+                draw();
+            }
+            importBtn.addEventListener('click', () => { const json = prompt('Paste graph JSON'); if (json) deserializeGraph(json); });
+            exportBtn.addEventListener('click', () => { const blob = new Blob([serializeGraph()], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='graph.json'; a.click(); URL.revokeObjectURL(url); });
+            presetGridBtn.addEventListener('click', () => makeGridPreset(3,3));
+            presetDagBtn.addEventListener('click', () => makeDagPreset());
+            // --- Sorting Module ---
+            let barsData = [];
+            let isSorting = false, isSortPaused = false, sortDelay = 400;
+            const barsContainer = document.getElementById('bars');
+            const sortSize = document.getElementById('sortSize');
+            const sortSpeed = document.getElementById('sortSpeed');
+            const genArrayBtn = document.getElementById('genArrayBtn');
+            const shuffleArrayBtn = document.getElementById('shuffleArrayBtn');
+            const runSortBtn = document.getElementById('runSortBtn');
+            const pauseSortBtn = document.getElementById('pauseSortBtn');
+            const resumeSortBtn = document.getElementById('resumeSortBtn');
+            const resetSortBtn = document.getElementById('resetSortBtn');
+            const sortAlgo = document.getElementById('sortAlgo');
+            const sortPseudocode = document.getElementById('sortPseudocode');
+
+            function initSorting() {
+                generateArray(Number(sortSize.value));
+                renderBars();
+                updateSortPseudocode();
+            }
+            function generateArray(n) {
+                barsData = Array.from({length: n}, () => Math.floor(Math.random() * 95) + 5);
+            }
+            function shuffleArray() {
+                for (let i = barsData.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [barsData[i], barsData[j]] = [barsData[j], barsData[i]];
+                }
+            }
+            function renderBars(highlightIndexA = -1, highlightIndexB = -1) {
+                barsContainer.innerHTML = '';
+                const maxVal = Math.max(...barsData, 100);
+                barsData.forEach((val, idx) => {
+                    const bar = document.createElement('div');
+                    const h = (val / maxVal) * 100;
+                    bar.style.setProperty('--h', `${h}%`);
+                    bar.style.height = `${h}%`;
+                    bar.style.animationDelay = `${idx * 8}ms`;
+                    bar.className = `bar-anim flex-1 bg-indigo-500 ${idx===highlightIndexA||idx===highlightIndexB? 'bg-emerald-500' : ''}`;
+                    barsContainer.appendChild(bar);
+                });
+            }
+            async function sortStepPause() {
+                if (isSortPaused) {
+                    await new Promise(resolve => {
+                        const i = setInterval(() => { if (!isSortPaused) { clearInterval(i); resolve(); } }, 50);
+                    });
+                }
+                await new Promise(res => setTimeout(res, sortDelay));
+            }
+            const sortPseudos = {
+                bubble: [
+                    '1. Repeat until sorted:',
+                    '2.   Compare adjacent elements and swap if order is wrong.'
+                ],
+                insertion: [
+                    '1. Iterate from left to right:',
+                    '2.   Insert current element into sorted prefix.'
+                ],
+                selection: [
+                    '1. For each index i:',
+                    '2.   Find min in [i..n) and swap with i.'
+                ],
+                merge: [
+                    '1. Divide array into halves until size 1.',
+                    '2. Merge halves in sorted order.'
+                ],
+                quick: [
+                    '1. Pick pivot and partition array.',
+                    '2. Recursively sort partitions.'
+                ],
+                heap: [
+                    '1. Build max-heap.',
+                    '2. Repeatedly swap root with end and heapify.'
+                ]
+            };
+            function updateSortPseudocode() {
+                const algo = sortAlgo.value;
+                sortPseudocode.innerHTML = sortPseudos[algo].map(l => `<div class="pseudo-line">${l}</div>`).join('');
+            }
+            // Sorting algorithms (animated)
+            async function bubbleSort() {
+                for (let i = 0; i < barsData.length; i++) {
+                    for (let j = 0; j < barsData.length - i - 1; j++) {
+                        if (barsData[j] > barsData[j+1]) {
+                            [barsData[j], barsData[j+1]] = [barsData[j+1], barsData[j]];
+                        }
+                        renderBars(j, j+1); await sortStepPause();
+                    }
+                }
+            }
+            async function insertionSort() {
+                for (let i = 1; i < barsData.length; i++) {
+                    let key = barsData[i];
+                    let j = i - 1;
+                    while (j >= 0 && barsData[j] > key) {
+                        barsData[j+1] = barsData[j];
+                        j--;
+                        renderBars(j, j+1); await sortStepPause();
+                    }
+                    barsData[j+1] = key;
+                    renderBars(j+1); await sortStepPause();
+                }
+            }
+            async function selectionSort() {
+                for (let i = 0; i < barsData.length; i++) {
+                    let minIdx = i;
+                    for (let j = i+1; j < barsData.length; j++) {
+                        if (barsData[j] < barsData[minIdx]) minIdx = j;
+                        renderBars(minIdx, j); await sortStepPause();
+                    }
+                    [barsData[i], barsData[minIdx]] = [barsData[minIdx], barsData[i]];
+                    renderBars(i, minIdx); await sortStepPause();
+                }
+            }
+            async function mergeSort(arr = barsData, l = 0, r = barsData.length - 1) {
+                if (l >= r) return;
+                const m = Math.floor((l + r) / 2);
+                await mergeSort(arr, l, m);
+                await mergeSort(arr, m + 1, r);
+                const temp = [];
+                let i = l, j = m + 1;
+                while (i <= m && j <= r) {
+                    temp.push(arr[i] <= arr[j] ? arr[i++] : arr[j++]);
+                    renderBars(i, j); await sortStepPause();
+                }
+                while (i <= m) { temp.push(arr[i++]); renderBars(i); await sortStepPause(); }
+                while (j <= r) { temp.push(arr[j++]); renderBars(j); await sortStepPause(); }
+                for (let k = 0; k < temp.length; k++) arr[l + k] = temp[k];
+                renderBars(l, r); await sortStepPause();
+            }
+            async function quickSort(arr = barsData, l = 0, r = barsData.length - 1) {
+                if (l >= r) return;
+                const pivot = arr[r];
+                let i = l;
+                for (let j = l; j < r; j++) {
+                    if (arr[j] < pivot) { [arr[i], arr[j]] = [arr[j], arr[i]]; i++; }
+                    renderBars(i, j); await sortStepPause();
+                }
+                [arr[i], arr[r]] = [arr[r], arr[i]];
+                renderBars(i, r); await sortStepPause();
+                await quickSort(arr, l, i - 1);
+                await quickSort(arr, i + 1, r);
+            }
+            async function heapSort() {
+                const n = barsData.length;
+                const heapify = async (nSize, i) => {
+                    let largest = i;
+                    const left = 2 * i + 1, right = 2 * i + 2;
+                    if (left < nSize && barsData[left] > barsData[largest]) largest = left;
+                    if (right < nSize && barsData[right] > barsData[largest]) largest = right;
+                    if (largest !== i) { [barsData[i], barsData[largest]] = [barsData[largest], barsData[i]]; renderBars(i, largest); await sortStepPause(); await heapify(nSize, largest); }
+                };
+                for (let i = Math.floor(n/2) - 1; i >= 0; i--) { await heapify(n, i); }
+                for (let i = n - 1; i > 0; i--) { [barsData[0], barsData[i]] = [barsData[i], barsData[0]]; renderBars(0, i); await sortStepPause(); await heapify(i, 0); }
+            }
+            function bindSortingEvents() {
+                sortSize.addEventListener('input', () => { if (isSorting) return; generateArray(Number(sortSize.value)); renderBars(); });
+                sortSpeed.addEventListener('input', (e) => { sortDelay = 1010 - Number(e.target.value); });
+                genArrayBtn.addEventListener('click', () => { if (isSorting) return; generateArray(Number(sortSize.value)); renderBars(); });
+                shuffleArrayBtn.addEventListener('click', () => { if (isSorting) return; shuffleArray(); renderBars(); });
+                sortAlgo.addEventListener('change', updateSortPseudocode);
+                runSortBtn.addEventListener('click', async () => {
+                    if (isSorting) return;
+                    isSorting = true; isSortPaused = false;
+                    pauseSortBtn.disabled = false; resumeSortBtn.disabled = true;
+                    const algo = sortAlgo.value;
+                    if (algo === 'bubble') await bubbleSort();
+                    else if (algo === 'insertion') await insertionSort();
+                    else if (algo === 'selection') await selectionSort();
+                    else if (algo === 'merge') await mergeSort();
+                    else if (algo === 'quick') await quickSort();
+                    else if (algo === 'heap') await heapSort();
+                    isSorting = false; pauseSortBtn.disabled = true; resumeSortBtn.disabled = true;
+                });
+                pauseSortBtn.addEventListener('click', () => { isSortPaused = true; pauseSortBtn.disabled = true; resumeSortBtn.disabled = false; });
+                resumeSortBtn.addEventListener('click', () => { isSortPaused = false; pauseSortBtn.disabled = false; resumeSortBtn.disabled = true; });
+                resetSortBtn.addEventListener('click', () => { if (isSorting) return; generateArray(Number(sortSize.value)); renderBars(); });
+            }
+            bindSortingEvents();
+
+            // --- Stack/Queue Module ---
+            const stackView = document.getElementById('stackView');
+            const queueView = document.getElementById('queueView');
+            const opLog = document.getElementById('opLog');
+            const sqCode = document.getElementById('sqCode');
+            const sqSpeed = document.getElementById('sqSpeed');
+            const stack = [];
+            const queue = [];
+            let isSQAnimating = false;
+            let sqDelay = 400;
+
+            function showToast(message, type = 'info') {
+                const c = document.getElementById('toastContainer');
+                if (!c) return;
+                const el = document.createElement('div');
+                el.className = `toast ${type}`;
+                el.innerHTML = `<i class="fa-solid ${type==='error'?'fa-circle-exclamation':type==='success'?'fa-circle-check':'fa-circle-info'}"></i><span>${message}</span>`;
+                c.appendChild(el);
+                requestAnimationFrame(()=> el.classList.add('show'));
+                setTimeout(() => { el.classList.remove('show'); setTimeout(()=> { if (el.parentNode) c.removeChild(el); }, 200); }, 2000);
+            }
+
+            function logOperation(text) {
+                if (!opLog) return;
+                const line = document.createElement('div');
+                line.textContent = text;
+                opLog.appendChild(line);
+                opLog.scrollTop = opLog.scrollHeight;
+            }
+
+            const codeSnippets = {
+                push: `// Push x onto stack\nstack.push(x);`,
+                pop: `// Pop and return top\nreturn stack.pop();`,
+                peek: `// Return top without removing\nreturn stack[stack.length-1];`,
+                enqueue: `// Add x to rear\nqueue.push(x);`,
+                dequeue: `// Remove and return front\nreturn queue.shift();`,
+                front: `// Return front without removing\nreturn queue[0];`
+            };
+            function showCodeSnippet(kind) {
+                if (!sqCode) return;
+                sqCode.textContent = codeSnippets[kind] || '// ...';
+            }
+
+            function setSQButtonsDisabled(disabled) {
+                ['stackPush','stackPop','stackPeek','stackClear','queueEnq','queueDeq','queueFront','queueClear']
+                    .forEach(id => { const b = document.getElementById(id); if (b) b.disabled = disabled; });
+            }
+
+            function renderStack(highlightTop = false, emptyFlash = false) {
+                stackView.innerHTML = '';
+                if (stack.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-state';
+                    empty.textContent = 'Stack is empty. Push an element to start!';
+                    stackView.appendChild(empty);
+                    return;
+                }
+                stack.forEach((v, idx) => {
+                    const el = document.createElement('div');
+                    const isTop = idx === stack.length - 1;
+                    el.className = `slot ${isTop ? 'slot-top' : ''} slot-filled ${(isTop && highlightTop) ? 'push-anim' : ''} ${emptyFlash ? 'flash' : ''}`;
+                    el.innerHTML = `<span>${v}${isTop ? '<span class=\"badge\">TOP</span>' : ''}</span>`;
+                    stackView.appendChild(el);
+                });
+            }
+            function renderQueue(highlightFront = false, emptyFlash = false) {
+                queueView.innerHTML = '';
+                if (queue.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-state';
+                    empty.textContent = 'Queue is empty. Enqueue an element to start!';
+                    queueView.appendChild(empty);
+                    return;
+                }
+                queue.forEach((v, idx) => {
+                    const el = document.createElement('div');
+                    const isFront = idx === 0;
+                    el.className = `slot ${isFront ? 'slot-front' : ''} slot-filled ${(isFront && highlightFront) ? 'enqueue-anim' : ''} ${emptyFlash ? 'flash' : ''}`;
+                    el.innerHTML = `<span>${v}${isFront ? '<span class=\"badge\">FRONT</span>' : ''}</span>`;
+                    queueView.appendChild(el);
+                });
+            }
+            function initStackQueue() {
+                renderStack();
+                renderQueue();
+                if (sqSpeed) sqSpeed.addEventListener('input', (e) => { sqDelay = 1300 - Number(e.target.value); });
+
+                document.getElementById('stackPush').addEventListener('click', async () => {
+                    if (isSQAnimating) return; const input = (document.getElementById('stackInput')); const val = input.value.trim();
+                    if (!val) { showToast('Enter a value to push', 'error'); return; }
+                    isSQAnimating = true; setSQButtonsDisabled(true);
+                    stack.push(val); input.value = ''; renderStack(true);
+                    showCodeSnippet('push'); logOperation(`push(${val})`);
+                    await new Promise(res => setTimeout(res, sqDelay));
+                    isSQAnimating = false; setSQButtonsDisabled(false); showToast('Pushed to stack', 'success');
+                });
+                document.getElementById('stackPop').addEventListener('click', async () => {
+                    if (isSQAnimating) return; if (!stack.length) { showToast('Cannot pop: Stack is empty', 'error'); renderStack(false, true); return; }
+                    isSQAnimating = true; setSQButtonsDisabled(true);
+                    renderStack(true); showCodeSnippet('pop');
+                    const topVal = stack[stack.length-1]; logOperation(`pop() -> returns ${topVal}`);
+                    await new Promise(res => setTimeout(res, Math.max(150, sqDelay/1.2)));
+                    stack.pop(); renderStack();
+                    await new Promise(res => setTimeout(res, 80));
+                    isSQAnimating = false; setSQButtonsDisabled(false); showToast('Popped from stack', 'success');
+                });
+                document.getElementById('stackPeek').addEventListener('click', () => {
+                    if (!stack.length) { showToast('Stack is empty', 'error'); renderStack(false, true); return; }
+                    renderStack(true); showCodeSnippet('peek');
+                    const topVal = stack[stack.length-1]; logOperation(`peek() -> ${topVal}`);
+                });
+                document.getElementById('stackClear').addEventListener('click', () => { stack.length = 0; renderStack(); logOperation('clear(stack)'); showCodeSnippet('push'); });
+                document.getElementById('queueEnq').addEventListener('click', async () => {
+                    if (isSQAnimating) return; const input = (document.getElementById('queueInput')); const val = input.value.trim();
+                    if (!val) { showToast('Enter a value to enqueue', 'error'); return; }
+                    isSQAnimating = true; setSQButtonsDisabled(true);
+                    queue.push(val); input.value = ''; renderQueue(true);
+                    showCodeSnippet('enqueue'); logOperation(`enqueue(${val})`);
+                    await new Promise(res => setTimeout(res, sqDelay));
+                    isSQAnimating = false; setSQButtonsDisabled(false); showToast('Enqueued to queue', 'success');
+                });
+                document.getElementById('queueDeq').addEventListener('click', async () => {
+                    if (isSQAnimating) return; if (!queue.length) { showToast('Cannot dequeue: Queue is empty', 'error'); renderQueue(false, true); return; }
+                    isSQAnimating = true; setSQButtonsDisabled(true);
+                    renderQueue(true); showCodeSnippet('dequeue');
+                    const frontVal = queue[0]; logOperation(`dequeue() -> returns ${frontVal}`);
+                    await new Promise(res => setTimeout(res, Math.max(150, sqDelay/1.2)));
+                    queue.shift(); renderQueue();
+                    await new Promise(res => setTimeout(res, 80));
+                    isSQAnimating = false; setSQButtonsDisabled(false); showToast('Dequeued from queue', 'success');
+                });
+                document.getElementById('queueFront').addEventListener('click', () => {
+                    if (!queue.length) { showToast('Queue is empty', 'error'); renderQueue(false, true); return; }
+                    renderQueue(true); showCodeSnippet('front');
+                    const frontVal = queue[0]; logOperation(`front() -> ${frontVal}`);
+                });
+                document.getElementById('queueClear').addEventListener('click', () => { queue.length = 0; renderQueue(); logOperation('clear(queue)'); showCodeSnippet('enqueue'); });
+            }
+
+            // --- Initialize (all modules) ---
+            initialize();
+        });
+    </script>
+</body>
+</html>
